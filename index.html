@@ -1,0 +1,2375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistente VerboQuest para Docentes</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- PDF.js CDN para lectura de archivos PDF seleccionables -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+        .step-panel {
+            animation: fadeIn 0.25s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Estilos dedicados a la impresión de tarjetas de PINs */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printArea, #printArea * {
+                visibility: visible;
+            }
+            #printArea {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- ========================================================= -->
+    <!-- CABECERA Y BARRA DE PROGRESO (4 PASOS GUIADOS)            -->
+    <!-- ========================================================= -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-600 to-emerald-500 flex items-center justify-center text-white shadow-md shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">Asistente VerboQuest para Docentes</h1>
+                        <p class="text-xs sm:text-sm text-slate-500">Genera tu hoja de Google Sheets, el código de Google Sites y el enlace para Classroom sin programar</p>
+                    </div>
+                </div>
+                <!-- Contadores rápidos en cabecera -->
+                <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                    <span id="badgeStudents" class="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">0 alumnos</span>
+                    <span id="badgeVerbs" class="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">0 verbos</span>
+                    <span id="badgeVocab" class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">0 vocabulario</span>
+                </div>
+            </div>
+
+            <!-- Barra de navegación de 4 pasos -->
+            <nav aria-label="Progreso del asistente" class="mt-5">
+                <ol class="grid grid-cols-4 gap-2 sm:gap-4">
+                    <li>
+                        <button type="button" onclick="goToStep(1)" class="w-full text-left focus:outline-none">
+                            <div id="bar-1" class="h-2 rounded-full bg-indigo-600 transition-all duration-300"></div>
+                            <div class="mt-2 flex items-center gap-1.5">
+                                <span id="num-1" class="w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center bg-indigo-600 text-white shrink-0">1</span>
+                                <span id="lbl-1" class="text-xs sm:text-sm font-bold text-indigo-700 truncate">Datos</span>
+                            </div>
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button" onclick="goToStep(2)" class="w-full text-left focus:outline-none">
+                            <div id="bar-2" class="h-2 rounded-full bg-slate-200 transition-all duration-300"></div>
+                            <div class="mt-2 flex items-center gap-1.5">
+                                <span id="num-2" class="w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center bg-slate-200 text-slate-600 shrink-0">2</span>
+                                <span id="lbl-2" class="text-xs sm:text-sm font-medium text-slate-500 truncate">Hoja y Script</span>
+                            </div>
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button" onclick="goToStep(3)" class="w-full text-left focus:outline-none">
+                            <div id="bar-3" class="h-2 rounded-full bg-slate-200 transition-all duration-300"></div>
+                            <div class="mt-2 flex items-center gap-1.5">
+                                <span id="num-3" class="w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center bg-slate-200 text-slate-600 shrink-0">3</span>
+                                <span id="lbl-3" class="text-xs sm:text-sm font-medium text-slate-500 truncate">HTML y Vista Previa</span>
+                            </div>
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button" onclick="goToStep(4)" class="w-full text-left focus:outline-none">
+                            <div id="bar-4" class="h-2 rounded-full bg-slate-200 transition-all duration-300"></div>
+                            <div class="mt-2 flex items-center gap-1.5">
+                                <span id="num-4" class="w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center bg-slate-200 text-slate-600 shrink-0">4</span>
+                                <span id="lbl-4" class="text-xs sm:text-sm font-medium text-slate-500 truncate">Publicar</span>
+                            </div>
+                        </button>
+                    </li>
+                </ol>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ========================================================= -->
+    <!-- CONTENIDO PRINCIPAL                                       -->
+    <!-- ========================================================= -->
+    <main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
+        <!-- ===================================================== -->
+        <!-- PASO 1: ALUMNADO, VERBOS IRREGULARES Y VOCABULARIO    -->
+        <!-- ===================================================== -->
+        <section id="step-1" class="step-panel space-y-8">
+
+            <!-- BLOQUE 1: ALUMNADO -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 sm:p-7 shadow-sm space-y-5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                    <div>
+                        <span class="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Paso 1 · Bloque 1</span>
+                        <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mt-2">👥 Listado de Alumnado y Códigos PIN</h2>
+                        <p class="text-sm text-slate-600 mt-1">Sube el CSV exportado de Séneca o pega los nombres. Convertiremos <span class="font-semibold text-slate-800">"García Martínez, Lucía"</span> en <span class="font-semibold text-indigo-700">"Lucía G. M."</span> y generaremos un PIN único de 4 dígitos.</p>
+                    </div>
+                    <button type="button" onclick="loadSampleStudents()" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-sm transition shrink-0 border border-indigo-200">
+                        ✨ Cargar alumnado de ejemplo
+                    </button>
+                </div>
+
+                <!-- Entrada CSV o Texto -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Opción A: Subir CSV de Séneca (.csv o .txt)</label>
+                        <label for="studentFileInput" class="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-indigo-300 rounded-2xl bg-indigo-50/40 hover:bg-indigo-50 cursor-pointer transition p-4 text-center">
+                            <svg class="w-8 h-8 text-indigo-500 mb-2" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+                            </svg>
+                            <span class="text-sm font-semibold text-indigo-700">Seleccionar archivo CSV / TXT</span>
+                            <span class="text-xs text-slate-500 mt-1">Detecta automáticamente "Apellidos, Nombre"</span>
+                            <input id="studentFileInput" type="file" accept=".csv,.txt" class="hidden" onchange="handleStudentFile(event)">
+                        </label>
+                    </div>
+
+                    <div class="flex flex-col">
+                        <label for="studentTextInput" class="block text-sm font-semibold text-slate-700 mb-2">Opción B: Pegar nombres (uno por línea)</label>
+                        <textarea id="studentTextInput" rows="4" placeholder="García Martínez, Lucía&#10;López Ruiz, Mateo&#10;Sofía Navarro Pérez" class="w-full flex-1 rounded-2xl border border-slate-300 p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none"></textarea>
+                        <button type="button" onclick="processStudentTextarea()" class="mt-2 w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold transition">
+                            + Procesar nombres y generar PINs
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabla editable de alumnado -->
+                <div class="pt-2">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
+                        <h3 class="text-base font-bold text-slate-900">Alumnado configurado (<span id="studentCount">0</span>)</h3>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button type="button" onclick="addEmptyStudent()" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">+ Añadir fila</button>
+                            <button type="button" onclick="regenerateAllPins()" class="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-semibold transition">🔄 Regenerar PINs</button>
+                            <button type="button" onclick="downloadPinsCSV()" class="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold transition">⬇️ Descargar PINs (CSV)</button>
+                            <button type="button" onclick="openPrintPinsModal()" class="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold transition">🖨️ Imprimir tarjetas de PINs</button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto rounded-xl border border-slate-200">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
+                                    <th class="py-2.5 px-3 w-10 text-center">#</th>
+                                    <th class="py-2.5 px-3">Nombre e inicial de apellidos</th>
+                                    <th class="py-2.5 px-3 w-36 text-center">PIN (4 dígitos)</th>
+                                    <th class="py-2.5 px-3 w-16 text-center">Borrar</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentTableBody" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BLOQUE 2: CONTENIDO (2 PESTAÑAS: VERBOS 3 FORMAS Y VOCABULARIO) -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 sm:p-7 shadow-sm space-y-5">
+                <div class="pb-2">
+                    <span class="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">Paso 1 · Bloque 2</span>
+                    <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mt-2">📖 Contenido de la actividad</h2>
+                    <p class="text-sm text-slate-600 mt-1">Organiza por separado los <strong>Verbos Irregulares (con sus 3 formas en inglés)</strong> y el <strong>Vocabulario</strong>.</p>
+                </div>
+
+                <!-- Selector de pestañas -->
+                <div class="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-slate-100 border border-slate-200">
+                    <button id="tabBtnVerbs" type="button" onclick="switchContentTab('verbs')" class="py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition bg-white text-indigo-700 shadow-sm">
+                        ⚡ Verbos Irregulares (3 formas) <span id="tabCountVerbs" class="ml-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs">0</span>
+                    </button>
+                    <button id="tabBtnVocab" type="button" onclick="switchContentTab('vocab')" class="py-3 px-3 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-600 hover:text-slate-900">
+                        📚 Vocabulario <span id="tabCountVocab" class="ml-1 px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-xs">0</span>
+                    </button>
+                </div>
+
+                <!-- PESTAÑA A: VERBOS IRREGULARES (3 FORMAS) -->
+                <div id="contentPanelVerbs" class="space-y-5 pt-1">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-indigo-50/60 border border-indigo-200 rounded-2xl p-4">
+                        <div class="text-xs sm:text-sm text-indigo-950">
+                            <strong class="block text-indigo-800">Formato detectado automáticamente (4 campos):</strong>
+                            <code>Infinitivo ; Past Simple ; Past Participle ; Español</code> (también acepta comas, tabuladores o guiones).
+                        </div>
+                        <button type="button" onclick="loadSampleVerbs1ESO()" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm transition shrink-0 shadow-sm">
+                            ✨ Cargar ejemplo 1º ESO (Verbos 3 formas)
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Subir archivo de verbos (.pdf, .csv o .txt)</label>
+                            <label for="verbsFileInput" class="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-indigo-300 rounded-2xl bg-indigo-50/30 hover:bg-indigo-50 cursor-pointer transition p-4 text-center">
+                                <svg class="w-8 h-8 text-indigo-500 mb-2" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+                                </svg>
+                                <span class="text-sm font-semibold text-indigo-700">Seleccionar PDF, CSV o TXT</span>
+                                <span class="text-xs text-slate-500 mt-1">Extrae las 3 formas y la traducción con PDF.js</span>
+                                <input id="verbsFileInput" type="file" accept=".pdf,.csv,.txt" class="hidden" onchange="handleVerbsFile(event)">
+                            </label>
+                            <div id="verbsPdfStatus" class="hidden mt-2 text-xs rounded-xl px-3 py-2 font-medium"></div>
+                        </div>
+
+                        <div class="flex flex-col">
+                            <label for="verbsTextInput" class="block text-sm font-semibold text-slate-700 mb-2">O pegar lista de verbos (uno por línea)</label>
+                            <textarea id="verbsTextInput" rows="4" placeholder="be; was / were; been; ser / estar&#10;go; went; gone; ir&#10;write - wrote - written - escribir" class="w-full flex-1 rounded-2xl border border-slate-300 p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none"></textarea>
+                            <button type="button" onclick="processVerbsTextarea()" class="mt-2 w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold transition">
+                                + Procesar verbos (3 formas)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabla editable de 4 columnas para Verbos Irregulares -->
+                    <div>
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <h3 class="text-base font-bold text-slate-900">Verbos irregulares (<span id="verbsCount">0</span>)</h3>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" onclick="addEmptyVerb()" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">+ Añadir verbo</button>
+                                <button type="button" onclick="clearVerbs()" class="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold transition">🗑️ Vaciar verbos</button>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto rounded-xl border border-slate-200">
+                            <table class="w-full text-left border-collapse min-w-[640px]">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
+                                        <th class="py-2.5 px-3 text-indigo-700">Infinitivo (1ª forma)</th>
+                                        <th class="py-2.5 px-3 text-indigo-700">Past Simple (2ª forma)</th>
+                                        <th class="py-2.5 px-3 text-indigo-700">Past Participle (3ª forma)</th>
+                                        <th class="py-2.5 px-3 text-emerald-700">Español</th>
+                                        <th class="py-2.5 px-3 w-14 text-center">Borrar</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="verbsTableBody" class="divide-y divide-slate-100 text-sm"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PESTAÑA B: VOCABULARIO (2 COLUMNAS) -->
+                <div id="contentPanelVocab" class="hidden space-y-5 pt-1">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4">
+                        <div class="text-xs sm:text-sm text-emerald-950">
+                            <strong class="block text-emerald-800">Formato detectado automáticamente (2 campos):</strong>
+                            <code>Inglés ; Español</code> (acepta punto y coma, coma, dos puntos, guion o tabulador).
+                        </div>
+                        <button type="button" onclick="loadSampleVocab1ESO()" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm transition shrink-0 shadow-sm">
+                            ✨ Cargar ejemplo 1º ESO (Vocabulario)
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Subir archivo de vocabulario (.pdf, .csv o .txt)</label>
+                            <label for="vocabFileInput" class="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-emerald-300 rounded-2xl bg-emerald-50/30 hover:bg-emerald-50 cursor-pointer transition p-4 text-center">
+                                <svg class="w-8 h-8 text-emerald-600 mb-2" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+                                </svg>
+                                <span class="text-sm font-semibold text-emerald-800">Seleccionar PDF, CSV o TXT</span>
+                                <span class="text-xs text-slate-500 mt-1">Extrae parejas Inglés - Español con PDF.js</span>
+                                <input id="vocabFileInput" type="file" accept=".pdf,.csv,.txt" class="hidden" onchange="handleVocabFile(event)">
+                            </label>
+                            <div id="vocabPdfStatus" class="hidden mt-2 text-xs rounded-xl px-3 py-2 font-medium"></div>
+                        </div>
+
+                        <div class="flex flex-col">
+                            <label for="vocabTextInput" class="block text-sm font-semibold text-slate-700 mb-2">O pegar vocabulario (uno por línea)</label>
+                            <textarea id="vocabTextInput" rows="4" placeholder="notebook - cuaderno&#10;library; biblioteca&#10;backpack : mochila" class="w-full flex-1 rounded-2xl border border-slate-300 p-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none"></textarea>
+                            <button type="button" onclick="processVocabTextarea()" class="mt-2 w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold transition">
+                                + Procesar vocabulario
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabla editable de 2 columnas para Vocabulario -->
+                    <div>
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <h3 class="text-base font-bold text-slate-900">Vocabulario (<span id="vocabCount">0</span>)</h3>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" onclick="addEmptyVocab()" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">+ Añadir palabra</button>
+                                <button type="button" onclick="clearVocab()" class="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold transition">🗑️ Vaciar vocabulario</button>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto rounded-xl border border-slate-200">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
+                                        <th class="py-2.5 px-3 text-indigo-700">Inglés</th>
+                                        <th class="py-2.5 px-3 text-emerald-700">Español</th>
+                                        <th class="py-2.5 px-3 w-14 text-center">Borrar</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vocabTableBody" class="divide-y divide-slate-100 text-sm"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botón continuar -->
+            <div class="flex justify-end">
+                <button type="button" onclick="goToStep(2)" class="px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm sm:text-base shadow-md shadow-indigo-200 transition flex items-center gap-2">
+                    Siguiente: Hoja de cálculo y Apps Script
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- ===================================================== -->
+        <!-- PASO 2: HOJA DE CÁLCULO Y GOOGLE APPS SCRIPT          -->
+        <!-- ===================================================== -->
+        <section id="step-2" class="step-panel hidden space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 sm:p-7 shadow-sm space-y-5">
+                <div>
+                    <span class="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Paso 2 de 4</span>
+                    <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mt-2">📊 Hoja de Cálculo y Google Apps Script</h2>
+                    <p class="text-sm text-slate-600 mt-1">Hemos generado el archivo <code>Code.gs</code> con tus <strong id="step2StudentCount" class="text-indigo-700">0</strong> alumnos. Al ejecutar <code>configurarHoja()</code> se crearán las 7 columnas exactas y las filas de tu clase automáticamente.</p>
+                </div>
+
+                <!-- Esquema de las 7 columnas exactas -->
+                <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2.5">Columnas que creará configurarHoja() en orden exacto:</p>
+                    <div class="flex flex-wrap gap-2 text-xs font-semibold">
+                        <span class="px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-800">1. Nombre e inicial de apellidos</span>
+                        <span class="px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-800">2. Código de usuario personal</span>
+                        <span class="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800">3. Puntos (XP)</span>
+                        <span class="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800">4. Sesiones activas</span>
+                        <span class="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800">5. Verbos dominados</span>
+                        <span class="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800">6. Vocabulario dominado</span>
+                        <span class="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800">7. Trucos</span>
+                    </div>
+                </div>
+
+                <!-- Botón grande de copiar Apps Script -->
+                <button type="button" onclick="copyCode('appsScriptCode', this)" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-700 hover:to-emerald-700 text-white font-extrabold text-base shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-2.5">
+                    📋 Copiar código Apps Script (Code.gs)
+                </button>
+
+                <!-- Visor de código Code.gs -->
+                <div class="rounded-2xl border border-slate-300 overflow-hidden bg-slate-900 shadow-sm">
+                    <div class="flex items-center justify-between px-4 py-2.5 bg-slate-800 border-b border-slate-700">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-rose-400"></span>
+                            <span class="w-3 h-3 rounded-full bg-amber-400"></span>
+                            <span class="w-3 h-3 rounded-full bg-emerald-400"></span>
+                            <span class="ml-2 text-xs font-mono text-slate-200 font-semibold">Code.gs</span>
+                        </div>
+                        <span class="text-[11px] text-slate-400">Listo para pegar en Apps Script</span>
+                    </div>
+                    <pre class="p-4 text-xs font-mono text-emerald-100 overflow-x-auto max-h-64 leading-relaxed"><code id="appsScriptCode"></code></pre>
+                </div>
+
+                <!-- Guía visual paso a paso -->
+                <div class="space-y-3.5">
+                    <div class="flex items-start gap-3.5 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                        <span class="w-7 h-7 rounded-full bg-indigo-600 text-white font-bold text-sm flex items-center justify-center shrink-0 mt-0.5">1</span>
+                        <div class="flex-1">
+                            <p class="text-sm font-bold text-slate-900">Crea tu hoja de cálculo y abre Extensiones &gt; Apps Script</p>
+                            <p class="text-xs text-slate-600 mt-0.5">Borra el código de ejemplo que aparece en <code>Código.gs</code>, pega el código copiado arriba y pulsa <strong>Guardar (💾)</strong>.</p>
+                            <a href="https://sheets.new" target="_blank" rel="noopener noreferrer" class="mt-2.5 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition">
+                                📊 Abrir nueva hoja en Google Sheets (sheets.new) ↗
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3.5 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                        <span class="w-7 h-7 rounded-full bg-indigo-600 text-white font-bold text-sm flex items-center justify-center shrink-0 mt-0.5">2</span>
+                        <div class="flex-1">
+                            <p class="text-sm font-bold text-slate-900">Ejecuta la función <code class="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800">configurarHoja</code></p>
+                            <p class="text-xs text-slate-600 mt-1">Selecciona <strong>configurarHoja</strong> en el menú superior de funciones y pulsa <strong>Ejecutar (▶)</strong>. Tu hoja se rellenará sola con las 7 columnas y todo tu alumnado.</p>
+                        </div>
+                    </div>
+
+                    <div class="p-5 rounded-2xl bg-indigo-50/70 border-2 border-indigo-200 space-y-4">
+                        <div class="flex items-start gap-3">
+                            <span class="w-7 h-7 rounded-full bg-indigo-600 text-white font-bold text-sm flex items-center justify-center shrink-0 mt-0.5">3</span>
+                            <div>
+                                <h3 class="text-base font-bold text-indigo-950">Implementar como Aplicación web para obtener la URL</h3>
+                                <p class="text-xs text-indigo-900/80 mt-0.5">Pulsa <strong>Implementar &gt; Nueva implementación</strong>, elige el tipo <strong>Aplicación web</strong> (icono ⚙️) y marca exactamente estas dos opciones:</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:pl-10">
+                            <div class="bg-white rounded-xl p-3.5 border border-indigo-200 shadow-sm">
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Ejecutar como</span>
+                                <p class="text-sm font-bold text-indigo-700 mt-0.5">✅ Yo (tu cuenta docente)</p>
+                            </div>
+                            <div class="bg-white rounded-xl p-3.5 border border-indigo-200 shadow-sm">
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Quién tiene acceso</span>
+                                <p class="text-sm font-bold text-emerald-700 mt-0.5">✅ Cualquier usuario</p>
+                            </div>
+                        </div>
+
+                        <div class="sm:ml-10 p-4 rounded-xl bg-amber-50 border border-amber-300 flex items-start gap-3">
+                            <span class="text-xl shrink-0">🛡️</span>
+                            <div class="text-xs text-amber-950 leading-relaxed">
+                                <strong class="font-bold block text-sm text-amber-900 mb-0.5">Aviso de "Aplicación no verificada" de Google</strong>
+                                Como el script es tuyo, Google muestra un aviso de seguridad la primera vez. Pulsa <strong>Configuración avanzada</strong> (abajo a la izquierda), haz clic en <strong>Ir a [nombre del proyecto] (no seguro)</strong> y acepta en <strong>Permitir</strong>. Al finalizar, copia la <strong>URL de la aplicación web</strong> (termina en <code>/exec</code>).
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navegación inferior -->
+            <div class="flex items-center justify-between">
+                <button type="button" onclick="goToStep(1)" class="px-5 py-3 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-sm transition">
+                    ← Volver a Datos
+                </button>
+                <button type="button" onclick="goToStep(3)" class="px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm sm:text-base shadow-md shadow-indigo-200 transition flex items-center gap-2">
+                    Siguiente: Ensamblar HTML y Vista Previa
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- ===================================================== -->
+        <!-- PASO 3: ENSAMBLADO HTML Y VISTA PREVIA EN VIVO        -->
+        <!-- ===================================================== -->
+        <section id="step-3" class="step-panel hidden space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 sm:p-7 shadow-sm space-y-5">
+                <div>
+                    <span class="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">Paso 3 de 4</span>
+                    <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mt-2">🧩 Ensamblado de VerboQuest (HTML) y Vista Previa</h2>
+                    <p class="text-sm text-slate-600 mt-1">Pega la <code>SCRIPT_URL</code> del Paso 2 para guardar el progreso real en Google Sheets. Si la dejas vacía, funcionará en <strong>Modo Demo</strong> para que puedas probarla al instante.</p>
+                </div>
+
+                <!-- Campo SCRIPT_URL -->
+                <div class="p-4 sm:p-5 rounded-2xl bg-emerald-50/70 border-2 border-emerald-200">
+                    <label for="scriptUrlInput" class="block text-sm font-bold text-emerald-950 mb-1">
+                        🔗 URL de Google Apps Script (<code>SCRIPT_URL</code>)
+                    </label>
+                    <p class="text-xs text-emerald-800 mb-2.5">Déjalo vacío para probar en Modo Demo, o pega aquí tu enlace acabado en <code>/exec</code>.</p>
+                    <input id="scriptUrlInput" type="url" oninput="updateScriptUrl(this.value)" placeholder="https://script.google.com/macros/s/AKfycb.../exec" class="w-full rounded-xl border border-emerald-300 bg-white px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none shadow-sm">
+                    <div id="urlValidationMsg" class="mt-2 text-xs font-semibold hidden"></div>
+                </div>
+
+                <!-- Resumen de contenidos ensamblados -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span class="text-xs text-slate-500">Alumnado</span>
+                        <p id="summaryStudents" class="text-sm sm:text-base font-bold text-indigo-700 mt-0.5">0 alumnos</p>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span class="text-xs text-slate-500">Verbos (3 formas)</span>
+                        <p id="summaryVerbs" class="text-sm sm:text-base font-bold text-amber-700 mt-0.5">0 verbos</p>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span class="text-xs text-slate-500">Vocabulario</span>
+                        <p id="summaryVocab" class="text-sm sm:text-base font-bold text-emerald-700 mt-0.5">0 palabras</p>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span class="text-xs text-slate-500">Conexión Sheets</span>
+                        <p id="summaryUrl" class="text-xs sm:text-sm font-bold text-amber-600 mt-1 truncate">Modo Demo</p>
+                    </div>
+                </div>
+
+                <!-- Botones de Copiar y Descargar -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button type="button" onclick="copyCode('finalHtmlCode', this)" class="flex-1 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-700 hover:to-emerald-700 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-2">
+                        📋 Copiar HTML para Google Sites
+                    </button>
+                    <button type="button" onclick="downloadVerboQuestHtml()" class="py-3.5 px-6 rounded-2xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm sm:text-base transition flex items-center justify-center gap-2">
+                        ⬇️ Descargar archivo HTML
+                    </button>
+                </div>
+
+                <!-- Visor del HTML generado -->
+                <details class="rounded-2xl border border-slate-300 overflow-hidden bg-slate-900">
+                    <summary class="px-4 py-3 bg-slate-800 text-xs font-mono text-slate-200 font-semibold cursor-pointer select-none flex items-center justify-between">
+                        <span>verboquest_alumnado.html — Ver código fuente generado</span>
+                        <span class="text-slate-400">Clic para desplegar</span>
+                    </summary>
+                    <pre class="p-4 text-xs font-mono text-indigo-100 overflow-x-auto max-h-56 leading-relaxed"><code id="finalHtmlCode"></code></pre>
+                </details>
+            </div>
+
+            <!-- VISTA PREVIA EN VIVO (IFRAME SRCDOC) -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-5 py-3.5 bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">👀 Vista previa en vivo</span>
+                        <span class="text-xs sm:text-sm font-medium text-slate-200">Prueba las <strong>3 formas verbales</strong> y el <strong>vocabulario</strong> entrando con un alumno o en Modo Demo</span>
+                    </div>
+                    <button type="button" onclick="refreshLivePreview()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition self-start sm:self-auto shrink-0">
+                        🔄 Reiniciar vista previa
+                    </button>
+                </div>
+                <iframe id="livePreviewIframe" class="w-full h-[720px] border-0 bg-slate-100" title="Vista previa interactiva de VerboQuest"></iframe>
+            </div>
+
+            <!-- Navegación inferior -->
+            <div class="flex items-center justify-between">
+                <button type="button" onclick="goToStep(2)" class="px-5 py-3 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-sm transition">
+                    ← Volver a Hoja y Script
+                </button>
+                <button type="button" onclick="goToStep(4)" class="px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm sm:text-base shadow-md shadow-indigo-200 transition flex items-center gap-2">
+                    Siguiente: Publicar en Sites y Classroom
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- ===================================================== -->
+        <!-- PASO 4: PUBLICAR EN GOOGLE SITES Y GOOGLE CLASSROOM   -->
+        <!-- ===================================================== -->
+        <section id="step-4" class="step-panel hidden space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 sm:p-7 shadow-sm space-y-5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <span class="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">Paso 4 de 4 — Publicación</span>
+                        <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mt-2">🚀 Publicar en Google Sites y Google Classroom</h2>
+                        <p class="text-sm text-slate-600 mt-1">Marca cada paso completado para verificar que tu actividad funciona sin bloqueos en clase.</p>
+                    </div>
+                    <span id="checklistProgressText" class="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-200 shrink-0 self-start sm:self-center">0 de 3 completados</span>
+                </div>
+
+                <!-- Barra de progreso -->
+                <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div id="checklistProgressBar" class="h-full bg-gradient-to-r from-indigo-600 to-emerald-500 transition-all duration-300" style="width: 0%"></div>
+                </div>
+
+                <!-- Checklist interactiva -->
+                <div class="space-y-3">
+                    <label class="flex items-start gap-3.5 p-4 rounded-2xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-indigo-50/40 transition">
+                        <input type="checkbox" onchange="updateChecklistProgress()" class="checklist-item mt-1 w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500">
+                        <div class="text-sm">
+                            <strong class="text-slate-900 block">1. Pegar el código en Google Sites y ajustar el alto del marco</strong>
+                            <span class="text-slate-600 text-xs sm:text-sm">Abre <a href="https://sites.new" target="_blank" rel="noopener noreferrer" class="text-indigo-600 underline font-semibold">sites.new</a>, entra en <strong>Insertar &gt; Incorporar &gt; Código insertado</strong>, pega el HTML del Paso 3 y pulsa <strong>Insertar</strong>. Estira el recuadro a todo lo ancho y dale bastante altura para que no se corten los botones ni los campos de las 3 formas verbales.</span>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start gap-3.5 p-4 rounded-2xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-indigo-50/40 transition">
+                        <input type="checkbox" onchange="updateChecklistProgress()" class="checklist-item mt-1 w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500">
+                        <div class="text-sm">
+                            <strong class="text-slate-900 block">2. Publicar el sitio y comprobar permisos en ventana de incógnito</strong>
+                            <span class="text-slate-600 text-xs sm:text-sm">Pulsa <strong>Publicar</strong> arriba a la derecha, copia el enlace público de tu Google Sites y ábrelo en una <strong>ventana de incógnito</strong>. Verifica que carga sin pedir permisos y que el alumno puede guardar su progreso y sus trucos.</span>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start gap-3.5 p-4 rounded-2xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-indigo-50/40 transition">
+                        <input type="checkbox" onchange="updateChecklistProgress()" class="checklist-item mt-1 w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500">
+                        <div class="text-sm">
+                            <strong class="text-slate-900 block">3. Compartir el enlace en Google Classroom y entregar los PINs</strong>
+                            <span class="text-slate-600 text-xs sm:text-sm">Crea una tarea o material en Google Classroom con el enlace del Google Sites y entrega a cada estudiante su tarjeta de PIN personal (generada en el Paso 1).</span>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Banner final -->
+                <div id="allDoneBanner" class="hidden p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-sm font-semibold flex items-center gap-3">
+                    <span class="text-2xl">🎉</span>
+                    <div>¡Todo listo! Tu VerboQuest con las 3 formas de los verbos irregulares y vocabulario ya está preparado para tu clase.</div>
+                </div>
+            </div>
+
+            <!-- Navegación inferior -->
+            <div class="flex items-center justify-between">
+                <button type="button" onclick="goToStep(3)" class="px-5 py-3 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-sm transition">
+                    ← Volver a HTML y Vista Previa
+                </button>
+                <button type="button" onclick="goToStep(1)" class="px-5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm transition">
+                    ↺ Volver al Paso 1
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- ========================================================= -->
+    <!-- MODAL: IMPRIMIR TARJETAS DE PINS                          -->
+    <!-- ========================================================= -->
+    <div id="printModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-lg font-bold text-slate-900">Tarjetas de PINs para repartir en clase</h3>
+                <button type="button" onclick="closePrintModal()" class="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100">✕</button>
+            </div>
+            <div id="printArea" class="p-6 overflow-y-auto flex-1">
+                <h4 class="text-base font-bold text-slate-900 mb-1">VerboQuest — Códigos PIN personales</h4>
+                <p class="text-xs text-slate-500 mb-4">Recorta y entrega a cada alumno su código de acceso.</p>
+                <div id="printListGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+            </div>
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-wrap justify-end gap-2">
+                <button type="button" onclick="copyPinsText(this)" class="px-4 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-sm transition">
+                    📋 Copiar lista
+                </button>
+                <button type="button" onclick="window.print()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition">
+                    🖨️ Imprimir
+                </button>
+                <button type="button" onclick="closePrintModal()" class="px-4 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold text-sm transition">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- NOTIFICACIÓN TOAST                                        -->
+    <!-- ========================================================= -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 hidden">
+        <div id="toastInner" class="px-4 py-3 rounded-xl shadow-lg text-sm font-semibold text-white bg-slate-900 flex items-center gap-2"></div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- LÓGICA JAVASCRIPT DEL ASISTENTE                           -->
+    <!-- ========================================================= -->
+    <script>
+        // Configurar worker de PDF.js
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+
+        // Estado global del asistente
+        const state = {
+            currentStep: 1,
+            contentTab: 'verbs', // 'verbs' | 'vocab'
+            students: [],        // { id, shortName, originalName, pin }
+            verbs: [],           // { id, base, past, participle, spanish }
+            vocab: [],           // { id, english, spanish }
+            scriptUrl: ''
+        };
+
+        // =====================================================
+        // UTILIDADES GENERALES
+        // =====================================================
+        let toastTimer = null;
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const inner = document.getElementById('toastInner');
+            const colors = {
+                success: 'bg-emerald-600',
+                info: 'bg-indigo-600',
+                warning: 'bg-amber-600',
+                error: 'bg-rose-600'
+            };
+            inner.className = `px-4 py-3 rounded-xl shadow-lg text-sm font-semibold text-white flex items-center gap-2 ${colors[type] || colors.info}`;
+            inner.textContent = message;
+            toast.classList.remove('hidden');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        function generateId() {
+            return Math.random().toString(36).substring(2, 10);
+        }
+
+        function generatePin(usedPins = new Set()) {
+            let pin;
+            let attempts = 0;
+            do {
+                pin = String(Math.floor(1000 + Math.random() * 9000));
+                attempts++;
+            } while (usedPins.has(pin) && attempts < 200);
+            usedPins.add(pin);
+            return pin;
+        }
+
+        function escapeHtml(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // Copiado compatible dentro de iframes usando document.execCommand('copy')
+        function copyTextToClipboard(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            ta.style.top = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            let ok = false;
+            try {
+                ok = document.execCommand('copy');
+            } catch (e) {
+                ok = false;
+            }
+            document.body.removeChild(ta);
+            return ok;
+        }
+
+        function copyCode(elementId, buttonEl) {
+            const codeEl = document.getElementById(elementId);
+            if (!codeEl) return;
+            const ok = copyTextToClipboard(codeEl.textContent);
+            if (ok) {
+                const prevHtml = buttonEl.innerHTML;
+                buttonEl.innerHTML = '✅ ¡Copiado al portapapeles!';
+                buttonEl.classList.add('ring-4', 'ring-emerald-300');
+                showToast('¡Código copiado!', 'success');
+                setTimeout(() => {
+                    buttonEl.innerHTML = prevHtml;
+                    buttonEl.classList.remove('ring-4', 'ring-emerald-300');
+                }, 2000);
+            } else {
+                showToast('No se pudo copiar automáticamente. Usa Ctrl+C.', 'warning');
+            }
+        }
+
+        function updateBadges() {
+            document.getElementById('badgeStudents').textContent = `${state.students.length} ${state.students.length === 1 ? 'alumno' : 'alumnos'}`;
+            document.getElementById('badgeVerbs').textContent = `${state.verbs.length} ${state.verbs.length === 1 ? 'verbo' : 'verbos'}`;
+            document.getElementById('badgeVocab').textContent = `${state.vocab.length} vocabulario`;
+
+            document.getElementById('studentCount').textContent = state.students.length;
+            document.getElementById('verbsCount').textContent = state.verbs.length;
+            document.getElementById('vocabCount').textContent = state.vocab.length;
+            document.getElementById('tabCountVerbs').textContent = state.verbs.length;
+            document.getElementById('tabCountVocab').textContent = state.vocab.length;
+        }
+
+        // =====================================================
+        // NAVEGACIÓN DE 4 PASOS Y PESTAÑAS DE CONTENIDO
+        // =====================================================
+        function goToStep(stepNum) {
+            state.currentStep = stepNum;
+            for (let i = 1; i <= 4; i++) {
+                const panel = document.getElementById(`step-${i}`);
+                const bar = document.getElementById(`bar-${i}`);
+                const num = document.getElementById(`num-${i}`);
+                const lbl = document.getElementById(`lbl-${i}`);
+
+                panel.classList.toggle('hidden', i !== stepNum);
+
+                if (i < stepNum) {
+                    bar.className = 'h-2 rounded-full bg-emerald-500 transition-all duration-300';
+                    num.className = 'w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center bg-emerald-500 text-white shrink-0';
+                    num.textContent = '✓';
+                    lbl.className = 'text-xs sm:text-sm font-semibold text-emerald-700 truncate';
+                } else if (i === stepNum) {
+                    bar.className = 'h-2 rounded-full bg-indigo-600 transition-all duration-300';
+                    num.className = 'w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center bg-indigo-600 text-white shrink-0';
+                    num.textContent = String(i);
+                    lbl.className = 'text-xs sm:text-sm font-bold text-indigo-700 truncate';
+                } else {
+                    bar.className = 'h-2 rounded-full bg-slate-200 transition-all duration-300';
+                    num.className = 'w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center bg-slate-200 text-slate-600 shrink-0';
+                    num.textContent = String(i);
+                    lbl.className = 'text-xs sm:text-sm font-medium text-slate-500 truncate';
+                }
+            }
+
+            if (stepNum === 2) renderStep2();
+            if (stepNum === 3) renderStep3();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function switchContentTab(tab) {
+            state.contentTab = tab;
+            const btnVerbs = document.getElementById('tabBtnVerbs');
+            const btnVocab = document.getElementById('tabBtnVocab');
+            const panelVerbs = document.getElementById('contentPanelVerbs');
+            const panelVocab = document.getElementById('contentPanelVocab');
+
+            if (tab === 'verbs') {
+                btnVerbs.className = 'py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition bg-white text-indigo-700 shadow-sm';
+                btnVocab.className = 'py-3 px-3 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-600 hover:text-slate-900';
+                panelVerbs.classList.remove('hidden');
+                panelVocab.classList.add('hidden');
+            } else {
+                btnVocab.className = 'py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition bg-white text-emerald-700 shadow-sm';
+                btnVerbs.className = 'py-3 px-3 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-600 hover:text-slate-900';
+                panelVocab.classList.remove('hidden');
+                panelVerbs.classList.add('hidden');
+            }
+        }
+
+        // =====================================================
+        // EXTRACCIÓN DE TEXTO DE PDF CON PDF.JS (COMPARTIDA)
+        // =====================================================
+        async function extractTextFromPdfFile(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const extractedLines = [];
+
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const content = await page.getTextContent();
+                const rows = new Map();
+
+                for (const item of content.items) {
+                    const str = item.str.trim();
+                    if (!str) continue;
+                    const y = Math.round(item.transform[5] / 4) * 4;
+                    if (!rows.has(y)) rows.set(y, []);
+                    rows.get(y).push({ x: item.transform[4], str });
+                }
+
+                const sortedYs = Array.from(rows.keys()).sort((a, b) => b - a);
+                for (const y of sortedYs) {
+                    const items = rows.get(y).sort((a, b) => a.x - b.x);
+                    let lineStr = '';
+                    for (let i = 0; i < items.length; i++) {
+                        if (i > 0) {
+                            const gap = items[i].x - items[i - 1].x;
+                            // Separar columnas visualmente distantes con tabulador
+                            lineStr += gap > 45 ? '\t' : ' ';
+                        }
+                        lineStr += items[i].str;
+                    }
+                    extractedLines.push(lineStr.trim());
+                }
+            }
+            return { text: extractedLines.join('\n').trim(), pages: pdf.numPages };
+        }
+
+        // =====================================================
+        // PASO 1 · BLOQUE 1: ALUMNADO Y PINS
+        // =====================================================
+        function capitalizeWords(str) {
+            return str.toLowerCase().split(/\s+/).map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : '').join(' ');
+        }
+
+        function extractInitials(surnamesStr) {
+            const particles = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'el']);
+            const words = surnamesStr.split(/\s+/).filter(Boolean);
+            const initials = [];
+            for (const w of words) {
+                if (particles.has(w.toLowerCase()) && words.length > 1) continue;
+                const ch = w.charAt(0).toUpperCase();
+                if (/[A-ZÁÉÍÓÚÑ]/.test(ch)) initials.push(ch + '.');
+            }
+            return initials.join(' ');
+        }
+
+        function formatStudentPrivacyName(rawLine) {
+            let clean = rawLine.trim().replace(/^["']+|["']+$/g, '').trim();
+            if (!clean) return null;
+
+            const lower = clean.toLowerCase();
+            if (
+                lower === 'alumno/a' || lower === 'alumnado' || lower === 'nombre' ||
+                lower.startsWith('alumno/a;') || lower.startsWith('apellidos;') ||
+                lower.startsWith('nombre;') || lower.startsWith('nie;') ||
+                lower.includes('relación de alumnado') || lower.includes('consejería de')
+            ) {
+                return null;
+            }
+
+            // Columnas separadas por ";" (típico CSV de Séneca)
+            if (clean.includes(';')) {
+                const cols = clean.split(';').map(c => c.replace(/^["']+|["']+$/g, '').trim()).filter(Boolean);
+                const senecaCol = cols.find(c => c.includes(',') && /[a-záéíóúñ]/i.test(c));
+                if (senecaCol) {
+                    clean = senecaCol;
+                } else if (cols.length >= 2 && /[a-záéíóúñ]/i.test(cols[0]) && /[a-záéíóúñ]/i.test(cols[1]) && !/^\d+$/.test(cols[0])) {
+                    clean = `${cols[0]} ${cols[1]}`;
+                } else {
+                    const textCol = cols.find(c => /[a-záéíóúñ]{2,}/i.test(c) && !/^\d+$/.test(c));
+                    if (textCol) clean = textCol;
+                }
+            }
+
+            // Formato "Apellidos, Nombre" -> "Nombre A. B."
+            if (clean.includes(',')) {
+                const parts = clean.split(',').map(p => p.trim()).filter(Boolean);
+                if (parts.length >= 2) {
+                    const iniciales = extractInitials(parts[0]);
+                    const nombre = capitalizeWords(parts[1]);
+                    return {
+                        shortName: iniciales ? `${nombre} ${iniciales}` : nombre,
+                        originalName: clean
+                    };
+                }
+            }
+
+            // Formato "Nombre Apellido1 Apellido2" -> "Nombre A. B."
+            const words = clean.split(/\s+/).filter(Boolean);
+            if (words.length === 1) {
+                return { shortName: capitalizeWords(words[0]), originalName: clean };
+            }
+            const firstName = capitalizeWords(words[0]);
+            const iniciales = extractInitials(words.slice(1).join(' '));
+            return {
+                shortName: iniciales ? `${firstName} ${iniciales}` : firstName,
+                originalName: clean
+            };
+        }
+
+        function parseStudentsFromText(text, replace = false) {
+            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            if (replace) state.students = [];
+            const usedPins = new Set(state.students.map(s => s.pin));
+            let added = 0;
+
+            for (const line of lines) {
+                const parsed = formatStudentPrivacyName(line);
+                if (parsed && parsed.shortName) {
+                    state.students.push({
+                        id: generateId(),
+                        shortName: parsed.shortName,
+                        originalName: parsed.originalName,
+                        pin: generatePin(usedPins)
+                    });
+                    added++;
+                }
+            }
+
+            renderStudentTable();
+            updateBadges();
+            if (added > 0) showToast(`Se han añadido ${added} alumnos con PIN único.`, 'success');
+            else showToast('No se detectaron nombres válidos.', 'warning');
+        }
+
+        function handleStudentFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const buffer = e.target.result;
+                let text = new TextDecoder('utf-8').decode(buffer);
+                if (text.includes('\uFFFD')) text = new TextDecoder('windows-1252').decode(buffer);
+                parseStudentsFromText(text, false);
+                event.target.value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processStudentTextarea() {
+            const ta = document.getElementById('studentTextInput');
+            if (!ta.value.trim()) {
+                showToast('Escribe o pega al menos un nombre.', 'warning');
+                return;
+            }
+            parseStudentsFromText(ta.value, false);
+            ta.value = '';
+        }
+
+        function loadSampleStudents() {
+            const sample = [
+                'García Martínez, Lucía',
+                'López Ruiz, Mateo',
+                'Sánchez Gómez, Sofía',
+                'Fernández Navarro, Hugo',
+                'Jiménez Torres, Valeria'
+            ].join('\n');
+            parseStudentsFromText(sample, true);
+        }
+
+        function renderStudentTable() {
+            const tbody = document.getElementById('studentTableBody');
+            if (state.students.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-7 px-4 text-center text-slate-400 text-xs sm:text-sm">Sin alumnado todavía. Sube un CSV de Séneca, pega nombres o pulsa <strong>"Cargar alumnado de ejemplo"</strong>.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = state.students.map((st, idx) => `
+                <tr class="hover:bg-slate-50/80 transition">
+                    <td class="py-2 px-3 text-center text-xs font-semibold text-slate-400">${idx + 1}</td>
+                    <td class="py-2 px-3">
+                        <input type="text" value="${escapeHtml(st.shortName)}"
+                            onchange="updateStudentField('${st.id}', 'shortName', this.value)"
+                            class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </td>
+                    <td class="py-2 px-3">
+                        <input type="text" maxlength="8" value="${escapeHtml(st.pin)}"
+                            onchange="updateStudentField('${st.id}', 'pin', this.value)"
+                            class="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm font-mono font-bold text-indigo-700 bg-indigo-50/40 focus:ring-2 focus:ring-indigo-500 outline-none text-center">
+                    </td>
+                    <td class="py-2 px-3 text-center">
+                        <button type="button" onclick="deleteStudent('${st.id}')" title="Borrar" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">✕</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateStudentField(id, field, val) {
+            const st = state.students.find(s => s.id === id);
+            if (st) st[field] = val.trim();
+        }
+
+        function deleteStudent(id) {
+            state.students = state.students.filter(s => s.id !== id);
+            renderStudentTable();
+            updateBadges();
+        }
+
+        function addEmptyStudent() {
+            const used = new Set(state.students.map(s => s.pin));
+            state.students.push({
+                id: generateId(),
+                shortName: 'Nuevo alumno A.',
+                originalName: 'Nuevo alumno',
+                pin: generatePin(used)
+            });
+            renderStudentTable();
+            updateBadges();
+        }
+
+        function regenerateAllPins() {
+            if (!state.students.length) {
+                showToast('No hay alumnos para regenerar PINs.', 'warning');
+                return;
+            }
+            const used = new Set();
+            state.students.forEach(s => s.pin = generatePin(used));
+            renderStudentTable();
+            showToast('PINs regenerados.', 'info');
+        }
+
+        function downloadPinsCSV() {
+            if (!state.students.length) {
+                showToast('Añade alumnos antes de descargar.', 'warning');
+                return;
+            }
+            let csv = '\uFEFFNombre en VerboQuest;Nombre original;Código PIN\n';
+            state.students.forEach(s => {
+                csv += `"${s.shortName.replace(/"/g, '""')}";"${(s.originalName || s.shortName).replace(/"/g, '""')}";"${s.pin}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'VerboQuest_Listado_PINs.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Listado de PINs descargado.', 'success');
+        }
+
+        function openPrintPinsModal() {
+            if (!state.students.length) {
+                showToast('Añade alumnos primero.', 'warning');
+                return;
+            }
+            document.getElementById('printListGrid').innerHTML = state.students.map(s => `
+                <div class="p-3.5 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-between">
+                    <div>
+                        <p class="font-bold text-slate-900 text-sm">${escapeHtml(s.shortName)}</p>
+                        <p class="text-[11px] text-slate-500">${escapeHtml(s.originalName || '')}</p>
+                    </div>
+                    <div class="px-3 py-1.5 rounded-lg bg-white border border-indigo-200 font-mono font-extrabold text-indigo-700 text-base">
+                        PIN: ${escapeHtml(s.pin)}
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('printModal').classList.remove('hidden');
+        }
+
+        function closePrintModal() {
+            document.getElementById('printModal').classList.add('hidden');
+        }
+
+        function copyPinsText(btn) {
+            const lines = state.students.map(s => `${s.shortName}  |  PIN: ${s.pin}`);
+            if (copyTextToClipboard('VERBOQUEST - CÓDIGOS PIN\n' + lines.join('\n'))) {
+                const prev = btn.innerHTML;
+                btn.innerHTML = '✅ ¡Copiado!';
+                showToast('Lista de PINs copiada.', 'success');
+                setTimeout(() => btn.innerHTML = prev, 2000);
+            }
+        }
+
+        // =====================================================
+        // PASO 1 · BLOQUE 2A: VERBOS IRREGULARES (3 FORMAS)
+        // =====================================================
+        function parseVerbsFromText(text, replace = false) {
+            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            if (replace) state.verbs = [];
+            let added = 0;
+
+            for (const line of lines) {
+                const lower = line.toLowerCase();
+                // Omitir cabeceras habituales de tablas de verbos
+                if (
+                    (lower.includes('infinitivo') && lower.includes('past')) ||
+                    (lower.includes('infinitive') && lower.includes('past')) ||
+                    (lower.includes('base form') && lower.includes('participle'))
+                ) {
+                    continue;
+                }
+
+                let parts = null;
+                const separators = ['\t', ';', '|', ' - ', ' – ', ' — ', ','];
+                for (const sep of separators) {
+                    if (line.includes(sep)) {
+                        const split = line.split(sep).map(s => s.replace(/^["']+|["']+$/g, '').trim()).filter(Boolean);
+                        if (split.length >= 3) {
+                            parts = split;
+                            break;
+                        }
+                    }
+                }
+
+                // Fallback si el PDF separó columnas por 2 o más espacios
+                if (!parts) {
+                    const spaceSplit = line.split(/\s{2,}/).map(s => s.trim()).filter(Boolean);
+                    if (spaceSplit.length >= 3) parts = spaceSplit;
+                }
+
+                // Fallback si está separado por guion simple
+                if (!parts && (line.match(/-/g) || []).length >= 2) {
+                    const dashSplit = line.split('-').map(s => s.trim()).filter(Boolean);
+                    if (dashSplit.length >= 3) parts = dashSplit;
+                }
+
+                if (parts && parts.length >= 3) {
+                    const base = parts[0];
+                    const past = parts[1];
+                    const participle = parts[2];
+                    const spanish = parts.slice(3).join(' / ') || '';
+                    state.verbs.push({
+                        id: generateId(),
+                        base,
+                        past,
+                        participle,
+                        spanish
+                    });
+                    added++;
+                }
+            }
+
+            renderVerbsTable();
+            updateBadges();
+            return added;
+        }
+
+        async function handleVerbsFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const statusBox = document.getElementById('verbsPdfStatus');
+
+            if (file.name.toLowerCase().endsWith('.pdf')) {
+                statusBox.className = 'mt-2 text-xs rounded-xl px-3 py-2 font-medium bg-indigo-50 text-indigo-700 border border-indigo-200';
+                statusBox.textContent = '⏳ Leyendo PDF con PDF.js...';
+                statusBox.classList.remove('hidden');
+
+                try {
+                    const { text, pages } = await extractTextFromPdfFile(file);
+                    if (!text) {
+                        statusBox.className = 'mt-2 text-xs rounded-xl px-3 py-2 font-medium bg-amber-50 text-amber-800 border border-amber-200';
+                        statusBox.textContent = '⚠️ No se detectó texto seleccionable en el PDF. Pega los verbos en la caja derecha.';
+                    } else {
+                        document.getElementById('verbsTextInput').value = text;
+                        const added = parseVerbsFromText(text, false);
+                        statusBox.className = 'mt-2 text-xs rounded-xl px-3 py-2 font-medium bg-emerald-50 text-emerald-800 border border-emerald-200';
+                        statusBox.textContent = `✅ PDF leído (${pages} pág.). Detectados ${added} verbos. Revisa la tabla o ajusta el texto a la derecha.`;
+                        if (added > 0) showToast(`Añadidos ${added} verbos irregulares.`, 'success');
+                    }
+                } catch (err) {
+                    statusBox.className = 'mt-2 text-xs rounded-xl px-3 py-2 font-medium bg-rose-50 text-rose-700 border border-rose-200';
+                    statusBox.textContent = '❌ Error al leer el PDF. Copia el texto y pégalo a la derecha.';
+                }
+            } else {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const buffer = e.target.result;
+                    let text = new TextDecoder('utf-8').decode(buffer);
+                    if (text.includes('\uFFFD')) text = new TextDecoder('windows-1252').decode(buffer);
+                    const added = parseVerbsFromText(text, false);
+                    if (added > 0) showToast(`Añadidos ${added} verbos irregulares.`, 'success');
+                    else showToast('No se detectaron verbos con 3 formas en el archivo.', 'warning');
+                };
+                reader.readAsArrayBuffer(file);
+            }
+            event.target.value = '';
+        }
+
+        function processVerbsTextarea() {
+            const ta = document.getElementById('verbsTextInput');
+            if (!ta.value.trim()) {
+                showToast('Pega al menos un verbo (ej. go; went; gone; ir).', 'warning');
+                return;
+            }
+            const added = parseVerbsFromText(ta.value, false);
+            if (added > 0) {
+                showToast(`Añadidos ${added} verbos irregulares.`, 'success');
+                ta.value = '';
+            } else {
+                showToast('Usa 4 campos separados por ";", ",", "-" o tabulador: Infinitivo; Past Simple; Past Participle; Español.', 'warning');
+            }
+        }
+
+        function loadSampleVerbs1ESO() {
+            const sample = [
+                'be; was / were; been; ser / estar',
+                'go; went; gone; ir',
+                'eat; ate; eaten; comer',
+                'see; saw; seen; ver',
+                'do; did; done; hacer',
+                'have; had; had; tener',
+                'make; made; made; hacer / fabricar',
+                'take; took; taken; coger / tomar',
+                'come; came; come; venir',
+                'write; wrote; written; escribir'
+            ].join('\n');
+            const added = parseVerbsFromText(sample, true);
+            showToast(`Cargados ${added} verbos irregulares de 1º ESO (3 formas).`, 'success');
+        }
+
+        function renderVerbsTable() {
+            const tbody = document.getElementById('verbsTableBody');
+            if (state.verbs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-7 px-4 text-center text-slate-400 text-xs sm:text-sm">Sin verbos irregulares todavía. Sube un PDF/CSV o pulsa <strong>"Cargar ejemplo 1º ESO (Verbos 3 formas)"</strong>.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = state.verbs.map(v => `
+                <tr class="hover:bg-slate-50/80 transition">
+                    <td class="py-2 px-2.5">
+                        <input type="text" value="${escapeHtml(v.base)}"
+                            onchange="updateVerbField('${v.id}', 'base', this.value)"
+                            class="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-semibold text-indigo-800 bg-indigo-50/30 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </td>
+                    <td class="py-2 px-2.5">
+                        <input type="text" value="${escapeHtml(v.past)}"
+                            onchange="updateVerbField('${v.id}', 'past', this.value)"
+                            class="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-semibold text-indigo-800 bg-indigo-50/30 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </td>
+                    <td class="py-2 px-2.5">
+                        <input type="text" value="${escapeHtml(v.participle)}"
+                            onchange="updateVerbField('${v.id}', 'participle', this.value)"
+                            class="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-semibold text-indigo-800 bg-indigo-50/30 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </td>
+                    <td class="py-2 px-2.5">
+                        <input type="text" value="${escapeHtml(v.spanish)}"
+                            onchange="updateVerbField('${v.id}', 'spanish', this.value)"
+                            class="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-emerald-800 bg-emerald-50/30 focus:ring-2 focus:ring-emerald-500 outline-none">
+                    </td>
+                    <td class="py-2 px-2 text-center">
+                        <button type="button" onclick="deleteVerb('${v.id}')" title="Borrar" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">✕</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateVerbField(id, field, val) {
+            const v = state.verbs.find(x => x.id === id);
+            if (v) v[field] = val.trim();
+        }
+
+        function deleteVerb(id) {
+            state.verbs = state.verbs.filter(x => x.id !== id);
+            renderVerbsTable();
+            updateBadges();
+        }
+
+        function addEmptyVerb() {
+            state.verbs.push({ id: generateId(), base: 'drink', past: 'drank', participle: 'drunk', spanish: 'beber' });
+            renderVerbsTable();
+            updateBadges();
+        }
+
+        function clearVerbs() {
+            state.verbs = [];
+            renderVerbsTable();
+            updateBadges();
+            showToast('Lista de verbos vaciada.', 'info');
+        }
+
+        // =====================================================
+        // PASO 1 · BLOQUE 2B: VOCABULARIO (2 COLUMNAS)
+        // =====================================================
+        function parseVocabFromText(text, replace = false) {
+            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            if (replace) state.vocab = [];
+            let added = 0;
+
+            for (const line of lines) {
+                const lower = line.toLowerCase();
+                if (lower.startsWith('inglés;') || lower.startsWith('ingles;') || lower.startsWith('english;')) continue;
+
+                let parts = null;
+                const separators = ['\t', ';', '|', ' - ', ' – ', ' — ', ':', '=', ','];
+                for (const sep of separators) {
+                    if (line.includes(sep)) {
+                        const split = line.split(sep).map(s => s.replace(/^["']+|["']+$/g, '').trim()).filter(Boolean);
+                        if (split.length >= 2) {
+                            parts = split;
+                            break;
+                        }
+                    }
+                }
+                if (!parts && line.includes('-')) {
+                    const split = line.split('-').map(s => s.trim()).filter(Boolean);
+                    if (split.length >= 2) parts = split;
+                }
+
+                if (parts && parts.length >= 2) {
+                    state.vocab.push({
+                        id: generateId(),
+                        english: parts[0],
+                        spanish: parts[1]
+                    });
+                    added++;
+                }
+            }
+
+            renderVocabTable();
+            updateBadges();
+            return added;
+        }
+
+        async function handleVocabFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const statusBox = document.getElementById('vocabPdfStatus');
+
+            if (file.name.toLowerCase().endsWith('.pdf')) {
+                statusBox.className = 'mt-2 text-xs rounded-xl px-3 py-2 font-medium bg-indigo-50 text-indigo-700 border border-indigo-200';
+                statusBox.textContent = '⏳ Leyendo PDF con PDF.js...';
+                statusBox.classList.remove('hidden');
+
+                try {
+                    const { text, pages } = await extractTextFromPdfFile(file);
+                    if (!text) {
+                        statusBox.className = 'mt-2 text-xs rounded-xl px-3 py-2 font-medium bg-amber-50 text-amber-800 border border-amber-200';
+                        statusBox.textContent = '⚠️ No se detectó texto seleccionable. Pega el vocabulario en la caja derecha.';
+                    } else {
+                        document.getElementById('vocabTextInput').value = text;
+                        const added = parseVocabFromText(text, false);
+                        statusBox.className = 'mt-2 text-xs rounded-xl px-3 py-2 font-medium bg-emerald-50 text-emerald-800 border border-emerald-200';
+                        statusBox.textContent = `✅ PDF leído (${pages} pág.). Detectadas ${added} palabras.`;
+                        if (added > 0) showToast(`Añadidas ${added} palabras de vocabulario.`, 'success');
+                    }
+                } catch (err) {
+                    statusBox.className = 'mt-2 text-xs rounded-xl px-3 py-2 font-medium bg-rose-50 text-rose-700 border border-rose-200';
+                    statusBox.textContent = '❌ Error al leer el PDF. Copia el texto y pégalo a la derecha.';
+                }
+            } else {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const buffer = e.target.result;
+                    let text = new TextDecoder('utf-8').decode(buffer);
+                    if (text.includes('\uFFFD')) text = new TextDecoder('windows-1252').decode(buffer);
+                    const added = parseVocabFromText(text, false);
+                    if (added > 0) showToast(`Añadidas ${added} palabras de vocabulario.`, 'success');
+                    else showToast('No se detectaron parejas Inglés - Español.', 'warning');
+                };
+                reader.readAsArrayBuffer(file);
+            }
+            event.target.value = '';
+        }
+
+        function processVocabTextarea() {
+            const ta = document.getElementById('vocabTextInput');
+            if (!ta.value.trim()) {
+                showToast('Pega al menos una pareja (ej. notebook - cuaderno).', 'warning');
+                return;
+            }
+            const added = parseVocabFromText(ta.value, false);
+            if (added > 0) {
+                showToast(`Añadidas ${added} palabras de vocabulario.`, 'success');
+                ta.value = '';
+            } else {
+                showToast('Separa cada pareja con "-", ";", ":", "," o tabulador.', 'warning');
+            }
+        }
+
+        function loadSampleVocab1ESO() {
+            const sample = [
+                'notebook; cuaderno',
+                'library; biblioteca',
+                'backpack; mochila',
+                'subject; asignatura',
+                'homework; deberes',
+                'playground; patio de recreo',
+                'timetable; horario',
+                'dictionary; diccionario'
+            ].join('\n');
+            const added = parseVocabFromText(sample, true);
+            showToast(`Cargadas ${added} palabras de ejemplo de 1º ESO.`, 'success');
+        }
+
+        function renderVocabTable() {
+            const tbody = document.getElementById('vocabTableBody');
+            if (state.vocab.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="py-7 px-4 text-center text-slate-400 text-xs sm:text-sm">Sin vocabulario todavía. Sube un PDF/CSV o pulsa <strong>"Cargar ejemplo 1º ESO (Vocabulario)"</strong>.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = state.vocab.map(item => `
+                <tr class="hover:bg-slate-50/80 transition">
+                    <td class="py-2 px-3">
+                        <input type="text" value="${escapeHtml(item.english)}"
+                            onchange="updateVocabField('${item.id}', 'english', this.value)"
+                            class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none">
+                    </td>
+                    <td class="py-2 px-3">
+                        <input type="text" value="${escapeHtml(item.spanish)}"
+                            onchange="updateVocabField('${item.id}', 'spanish', this.value)"
+                            class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none">
+                    </td>
+                    <td class="py-2 px-3 text-center">
+                        <button type="button" onclick="deleteVocab('${item.id}')" title="Borrar" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">✕</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateVocabField(id, field, val) {
+            const item = state.vocab.find(v => v.id === id);
+            if (item) item[field] = val.trim();
+        }
+
+        function deleteVocab(id) {
+            state.vocab = state.vocab.filter(v => v.id !== id);
+            renderVocabTable();
+            updateBadges();
+        }
+
+        function addEmptyVocab() {
+            state.vocab.push({ id: generateId(), english: 'classroom', spanish: 'aula' });
+            renderVocabTable();
+            updateBadges();
+        }
+
+        function clearVocab() {
+            state.vocab = [];
+            renderVocabTable();
+            updateBadges();
+            showToast('Lista de vocabulario vaciada.', 'info');
+        }
+
+        // =====================================================
+        // PASO 2: GENERACIÓN DE GOOGLE APPS SCRIPT (Code.gs)
+        // =====================================================
+        function generateAppsScriptCode() {
+            const studentsForScript = state.students.map(s => [s.shortName, s.pin]);
+            const studentsJson = JSON.stringify(studentsForScript, null, 2);
+
+            return `/**
+ * VerboQuest - Backend para Google Sheets (Code.gs)
+ * Generado automáticamente por el Asistente VerboQuest para Docentes
+ */
+
+const SHEET_NAME = 'Alumnado';
+
+// Alumnado y códigos PIN generados en el Paso 1
+const ALUMNADO_INICIAL = ${studentsJson};
+
+/**
+ * Añade un menú rápido en Google Sheets al abrir la hoja.
+ */
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('VerboQuest')
+    .addItem('Configurar hoja y alumnado', 'configurarHoja')
+    .addToUi();
+}
+
+/**
+ * Crea las 7 columnas exactas y rellena el alumnado con sus PINs y progreso inicial a 0.
+ */
+function configurarHoja() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.getSheets()[0];
+    sheet.setName(SHEET_NAME);
+  }
+
+  const headers = [
+    'Nombre e inicial de apellidos',
+    'Código de usuario personal',
+    'Puntos (XP)',
+    'Sesiones activas',
+    'Verbos dominados',
+    'Vocabulario dominado',
+    'Trucos'
+  ];
+
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setValues([headers]);
+  headerRange.setBackground('#4f46e5');
+  headerRange.setFontColor('#ffffff');
+  headerRange.setFontWeight('bold');
+  sheet.setFrozenRows(1);
+
+  // Evitar duplicados si se vuelve a ejecutar
+  const lastRow = sheet.getLastRow();
+  const existingNames = new Set();
+  if (lastRow > 1) {
+    const existing = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    existing.forEach(r => { if (r[0]) existingNames.add(String(r[0]).trim()); });
+  }
+
+  const rowsToAdd = [];
+  ALUMNADO_INICIAL.forEach(item => {
+    const nombre = String(item[0]).trim();
+    const pin = String(item[1]).trim();
+    if (nombre && !existingNames.has(nombre)) {
+      rowsToAdd.push([nombre, pin, 0, 0, 0, 0, '']);
+    }
+  });
+
+  if (rowsToAdd.length > 0) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAdd.length, 7).setValues(rowsToAdd);
+  }
+
+  sheet.autoResizeColumns(1, 6);
+  sheet.setColumnWidth(7, 340);
+}
+
+function jsonResponse(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getTargetSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  return ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
+}
+
+function findStudentRow(sheet, nombre, pin) {
+  const values = sheet.getDataRange().getValues();
+  const targetName = String(nombre || '').trim().toLowerCase();
+  const targetPin = String(pin || '').trim();
+
+  for (let i = 1; i < values.length; i++) {
+    const rowName = String(values[i][0] || '').trim().toLowerCase();
+    const rowPin = String(values[i][1] || '').trim();
+    if (rowName === targetName && rowPin === targetPin) {
+      return { rowIndex: i + 1, rowData: values[i] };
+    }
+  }
+  return null;
+}
+
+/**
+ * Comprobación de estado o login vía GET.
+ */
+function doGet(e) {
+  try {
+    const params = (e && e.parameter) ? e.parameter : {};
+    if (params.action === 'login') {
+      return handleLogin(params.nombre, params.pin);
+    }
+    return jsonResponse({ ok: true, status: 'API de VerboQuest activa y lista.' });
+  } catch (err) {
+    return jsonResponse({ ok: false, error: err.message });
+  }
+}
+
+/**
+ * Validación de PIN y guardado de progreso (XP, sesiones, verbos, vocabulario y trucos) vía POST.
+ */
+function doPost(e) {
+  try {
+    const body = (e && e.postData && e.postData.contents) ? e.postData.contents : '{}';
+    const data = JSON.parse(body);
+
+    if (data.action === 'login') {
+      return handleLogin(data.nombre, data.pin);
+    }
+    if (data.action === 'update') {
+      return handleUpdate(data);
+    }
+    return jsonResponse({ ok: false, error: 'Acción no reconocida.' });
+  } catch (err) {
+    return jsonResponse({ ok: false, error: 'Error al procesar datos: ' + err.message });
+  }
+}
+
+function handleLogin(nombre, pin) {
+  const sheet = getTargetSheet();
+  const found = findStudentRow(sheet, nombre, pin);
+  if (!found) {
+    return jsonResponse({ ok: false, error: 'Nombre o código PIN incorrecto.' });
+  }
+
+  const sesiones = (Number(found.rowData[3]) || 0) + 1;
+  sheet.getRange(found.rowIndex, 4).setValue(sesiones);
+
+  return jsonResponse({
+    ok: true,
+    student: {
+      nombre: String(found.rowData[0]),
+      xp: Number(found.rowData[2]) || 0,
+      sesiones: sesiones,
+      verbos: Number(found.rowData[4]) || 0,
+      vocabulario: Number(found.rowData[5]) || 0,
+      trucos: String(found.rowData[6] || '')
+    }
+  });
+}
+
+function handleUpdate(data) {
+  const sheet = getTargetSheet();
+  const found = findStudentRow(sheet, data.nombre, data.pin);
+  if (!found) {
+    return jsonResponse({ ok: false, error: 'No se pudo validar al alumno.' });
+  }
+
+  if (typeof data.xp !== 'undefined') sheet.getRange(found.rowIndex, 3).setValue(Number(data.xp) || 0);
+  if (typeof data.sesiones !== 'undefined') sheet.getRange(found.rowIndex, 4).setValue(Number(data.sesiones) || 1);
+  if (typeof data.verbos !== 'undefined') sheet.getRange(found.rowIndex, 5).setValue(Number(data.verbos) || 0);
+  if (typeof data.vocabulario !== 'undefined') sheet.getRange(found.rowIndex, 6).setValue(Number(data.vocabulario) || 0);
+  if (typeof data.trucos !== 'undefined') sheet.getRange(found.rowIndex, 7).setValue(String(data.trucos));
+
+  return jsonResponse({ ok: true, saved: true });
+}`;
+        }
+
+        function renderStep2() {
+            document.getElementById('step2StudentCount').textContent = state.students.length;
+            document.getElementById('appsScriptCode').textContent = generateAppsScriptCode();
+        }
+
+        // =====================================================
+        // PASO 3: ENSAMBLADO HTML DE VERBOQUEST + VISTA PREVIA
+        // =====================================================
+        function updateScriptUrl(val) {
+            state.scriptUrl = val.trim();
+            const msg = document.getElementById('urlValidationMsg');
+            if (!state.scriptUrl) {
+                msg.classList.add('hidden');
+            } else {
+                msg.classList.remove('hidden');
+                if (state.scriptUrl.startsWith('https://script.google.com/macros/s/') && state.scriptUrl.endsWith('/exec')) {
+                    msg.className = 'mt-2 text-xs font-semibold text-emerald-700';
+                    msg.textContent = '✅ URL válida conectada al código HTML.';
+                } else {
+                    msg.className = 'mt-2 text-xs font-semibold text-amber-700';
+                    msg.textContent = '⚠️ Asegúrate de que la URL empiece por https://script.google.com/macros/s/ y termine en /exec.';
+                }
+            }
+            renderStep3();
+        }
+
+        function generateVerboQuestHtml() {
+            const studentNames = state.students.length > 0
+                ? state.students.map(s => s.shortName)
+                : ['Lucía G. M.', 'Mateo L. R.', 'Sofía S. G.'];
+
+            const verbsDeck = state.verbs.length > 0
+                ? state.verbs.map(v => ({ base: v.base, past: v.past, participle: v.participle, spanish: v.spanish }))
+                : [
+                    { base: 'be', past: 'was / were', participle: 'been', spanish: 'ser / estar' },
+                    { base: 'go', past: 'went', participle: 'gone', spanish: 'ir' },
+                    { base: 'eat', past: 'ate', participle: 'eaten', spanish: 'comer' },
+                    { base: 'see', past: 'saw', participle: 'seen', spanish: 'ver' },
+                    { base: 'write', past: 'wrote', participle: 'written', spanish: 'escribir' }
+                  ];
+
+            const vocabDeck = state.vocab.length > 0
+                ? state.vocab.map(v => ({ english: v.english, spanish: v.spanish }))
+                : [
+                    { english: 'notebook', spanish: 'cuaderno' },
+                    { english: 'library', spanish: 'biblioteca' },
+                    { english: 'backpack', spanish: 'mochila' },
+                    { english: 'homework', spanish: 'deberes' }
+                  ];
+
+            const scriptUrlSafe = JSON.stringify(state.scriptUrl || '');
+            const studentsJson = JSON.stringify(studentNames);
+            const verbsJson = JSON.stringify(verbsDeck);
+            const vocabJson = JSON.stringify(vocabDeck);
+
+            return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VerboQuest</title>
+<script src="https://cdn.tailwindcss.com"><\/script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; }
+</style>
+</head>
+<body class="bg-gradient-to-br from-indigo-50 via-white to-emerald-50 min-h-screen text-slate-800 p-3 sm:p-5">
+
+<div class="max-w-xl mx-auto">
+  <!-- PANTALLA DE ACCESO -->
+  <div id="loginScreen" class="bg-white rounded-3xl shadow-xl border border-slate-200 p-6 sm:p-8 mt-2">
+    <div class="text-center mb-6">
+      <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-indigo-600 to-emerald-500 text-white flex items-center justify-center text-2xl shadow-md mb-3">⚡</div>
+      <h1 class="text-2xl font-extrabold text-slate-900">VerboQuest</h1>
+      <p class="text-sm text-slate-500 mt-1">Selecciona tu nombre e introduce tu código PIN</p>
+    </div>
+
+    <div class="space-y-4">
+      <div>
+        <label for="studentSelect" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Nombre e iniciales</label>
+        <select id="studentSelect" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"></select>
+      </div>
+
+      <div>
+        <label for="pinInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Código PIN (4 dígitos)</label>
+        <input id="pinInput" type="password" inputmode="numeric" maxlength="8" placeholder="••••" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-center text-lg font-mono font-bold tracking-widest focus:ring-2 focus:ring-indigo-500 outline-none">
+      </div>
+
+      <div id="loginMsg" class="hidden text-xs font-semibold rounded-xl px-3.5 py-2.5"></div>
+
+      <button id="loginBtn" type="button" onclick="handleLogin()" class="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md transition">
+        Entrar a practicar
+      </button>
+
+      <button type="button" onclick="enterDemoMode()" class="w-full py-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-sm transition">
+        🧪 Entrar en Modo Demo (probar ahora)
+      </button>
+    </div>
+  </div>
+
+  <!-- PANTALLA PRINCIPAL DEL ALUMNO -->
+  <div id="appScreen" class="hidden space-y-4">
+    <!-- Cabecera alumno -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3.5 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <span id="userAvatar" class="w-9 h-9 rounded-xl bg-indigo-600 text-white font-bold flex items-center justify-center text-sm">A</span>
+        <div>
+          <p id="userNameDisplay" class="text-sm font-bold text-slate-900 leading-tight"></p>
+          <span id="modeBadge" class="text-[11px] font-semibold text-emerald-600">Conectado</span>
+        </div>
+      </div>
+      <button type="button" onclick="logout()" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition">Salir</button>
+    </div>
+
+    <!-- Panel de progreso -->
+    <div class="grid grid-cols-4 gap-2 text-center">
+      <div class="bg-white rounded-2xl border border-slate-200 p-2 shadow-sm">
+        <div class="text-[11px] text-slate-400 font-bold">XP</div>
+        <div id="statXp" class="text-lg font-extrabold text-amber-500">0</div>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-2 shadow-sm">
+        <div class="text-[11px] text-slate-400 font-bold">Sesiones</div>
+        <div id="statSessions" class="text-lg font-extrabold text-indigo-600">1</div>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-2 shadow-sm">
+        <div class="text-[11px] text-slate-400 font-bold">Verbos</div>
+        <div id="statVerbs" class="text-lg font-extrabold text-indigo-700">0</div>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-2 shadow-sm">
+        <div class="text-[11px] text-slate-400 font-bold">Vocab.</div>
+        <div id="statVocab" class="text-lg font-extrabold text-emerald-600">0</div>
+      </div>
+    </div>
+
+    <!-- Selector de modo principal: Verbos Irregulares vs Vocabulario -->
+    <div class="grid grid-cols-2 gap-2 p-1.5 bg-slate-200/70 rounded-2xl">
+      <button id="mainTabVerbs" type="button" onclick="switchMainMode('verbs')" class="py-2.5 px-3 rounded-xl text-xs sm:text-sm font-extrabold bg-white text-indigo-700 shadow-sm transition">⚡ Verbos Irregulares</button>
+      <button id="mainTabVocab" type="button" onclick="switchMainMode('vocab')" class="py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition">📚 Vocabulario</button>
+    </div>
+
+    <!-- ================================================= -->
+    <!-- MODO 1: VERBOS IRREGULARES (3 FORMAS EN INGLÉS)   -->
+    <!-- ================================================= -->
+    <div id="verbsSection" class="space-y-3.5">
+      <!-- Subpestañas Estudiar vs Practicar -->
+      <div class="flex gap-2">
+        <button id="subVerbsStudy" type="button" onclick="switchVerbsSub('study')" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-sm transition">📖 Estudiar (Tarjetas)</button>
+        <button id="subVerbsPractice" type="button" onclick="switchVerbsSub('practice')" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition">🎯 Practicar (Reto 3 formas)</button>
+      </div>
+
+      <!-- SUBPESTAÑA: ESTUDIAR VERBOS (LAS 3 FORMAS BIEN VISIBLES) -->
+      <div id="verbsStudyPanel" class="bg-white rounded-3xl shadow-md border-2 border-indigo-100 p-5 space-y-4">
+        <div class="flex items-center justify-between text-xs font-bold">
+          <span class="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700">⚡ 3 formas en inglés</span>
+          <span id="vStudyCounter" class="text-slate-400">1 / 1</span>
+        </div>
+
+        <!-- Significado en español -->
+        <div class="text-center py-2 px-3 rounded-2xl bg-emerald-50 border border-emerald-200">
+          <span class="block text-[10px] font-bold uppercase tracking-wider text-emerald-700">Significado en español</span>
+          <p id="vStudySpanish" class="text-xl font-extrabold text-emerald-900 mt-0.5"></p>
+        </div>
+
+        <!-- LAS TRES FORMAS EN INGLÉS ETIQUETADAS VISUALMENTE -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-center">
+          <div class="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200">
+            <span class="block text-[10px] font-bold uppercase tracking-wider text-indigo-500">1ª · Infinitivo</span>
+            <p id="vStudyBase" class="text-lg font-extrabold text-indigo-950 mt-1"></p>
+          </div>
+          <div class="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200">
+            <span class="block text-[10px] font-bold uppercase tracking-wider text-indigo-500">2ª · Past Simple</span>
+            <p id="vStudyPast" class="text-lg font-extrabold text-indigo-950 mt-1"></p>
+          </div>
+          <div class="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200">
+            <span class="block text-[10px] font-bold uppercase tracking-wider text-indigo-500">3ª · Past Participle</span>
+            <p id="vStudyPart" class="text-lg font-extrabold text-indigo-950 mt-1"></p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 pt-1">
+          <button type="button" onclick="prevVerbStudy()" class="py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">← Anterior</button>
+          <button type="button" onclick="shuffleVerbs()" class="py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">🔀 Barajar</button>
+          <button type="button" onclick="nextVerbStudy()" class="py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition">Siguiente →</button>
+        </div>
+      </div>
+
+      <!-- SUBPESTAÑA: PRACTICAR (RETO 3 FORMAS) -->
+      <div id="verbsPracticePanel" class="hidden bg-white rounded-3xl shadow-md border-2 border-indigo-100 p-5 space-y-4">
+        <div class="flex items-center justify-between text-xs font-bold">
+          <span class="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">🎯 Reto: escribe las 3 formas</span>
+          <span id="vPracCounter" class="text-slate-400">1 / 1</span>
+        </div>
+
+        <div class="text-center p-4 rounded-2xl bg-slate-50 border border-slate-200">
+          <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-400">Escribe las 3 formas en inglés de:</span>
+          <p id="vPracSpanish" class="text-2xl font-extrabold text-slate-900 mt-1"></p>
+          <div class="mt-2">
+            <button type="button" onclick="toggleInfinitiveHint()" class="text-xs font-semibold text-indigo-600 hover:underline">💡 Ver / ocultar pista del infinitivo</button>
+            <p id="vPracHint" class="hidden text-xs font-bold text-indigo-700 mt-1"></p>
+          </div>
+        </div>
+
+        <!-- 3 campos de entrada individuales -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label for="inBase" class="block text-[11px] font-bold uppercase text-slate-500 mb-1">1ª · Infinitivo</label>
+            <input id="inBase" type="text" autocomplete="off" placeholder="ej. go" class="w-full rounded-xl border-2 border-slate-200 px-3 py-2.5 text-sm font-bold text-center focus:border-indigo-500 outline-none">
+            <p id="fbBase" class="text-[11px] font-bold text-center mt-1 min-h-[16px]"></p>
+          </div>
+          <div>
+            <label for="inPast" class="block text-[11px] font-bold uppercase text-slate-500 mb-1">2ª · Past Simple</label>
+            <input id="inPast" type="text" autocomplete="off" placeholder="ej. went" class="w-full rounded-xl border-2 border-slate-200 px-3 py-2.5 text-sm font-bold text-center focus:border-indigo-500 outline-none">
+            <p id="fbPast" class="text-[11px] font-bold text-center mt-1 min-h-[16px]"></p>
+          </div>
+          <div>
+            <label for="inPart" class="block text-[11px] font-bold uppercase text-slate-500 mb-1">3ª · Past Participle</label>
+            <input id="inPart" type="text" autocomplete="off" placeholder="ej. gone" class="w-full rounded-xl border-2 border-slate-200 px-3 py-2.5 text-sm font-bold text-center focus:border-indigo-500 outline-none">
+            <p id="fbPart" class="text-[11px] font-bold text-center mt-1 min-h-[16px]"></p>
+          </div>
+        </div>
+
+        <!-- Retroalimentación global -->
+        <div id="vPracResult" class="hidden p-3.5 rounded-2xl text-xs sm:text-sm font-bold text-center"></div>
+
+        <div class="flex gap-2">
+          <button id="btnCheckVerb" type="button" onclick="checkVerbChallenge()" class="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-sm transition">✅ Comprobar 3 formas</button>
+          <button type="button" onclick="nextVerbPractice()" class="px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm transition">Siguiente →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================= -->
+    <!-- MODO 2: VOCABULARIO (ESTUDIAR Y RETO TRADUCCIÓN)  -->
+    <!-- ================================================= -->
+    <div id="vocabSection" class="hidden space-y-3.5">
+      <div class="flex gap-2">
+        <button id="subVocabStudy" type="button" onclick="switchVocabSub('study')" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-sm transition">📖 Estudiar (Tarjetas)</button>
+        <button id="subVocabPractice" type="button" onclick="switchVocabSub('practice')" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition">🎯 Reto de traducción</button>
+      </div>
+
+      <!-- Estudiar Vocabulario -->
+      <div id="vocabStudyPanel" class="bg-white rounded-3xl shadow-md border-2 border-emerald-100 p-6 text-center space-y-4">
+        <div class="flex items-center justify-between text-xs font-bold">
+          <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">📚 Tarjeta de vocabulario</span>
+          <span id="vocStudyCounter" class="text-slate-400">1 / 1</span>
+        </div>
+
+        <div onclick="flipVocabCard()" class="cursor-pointer py-8 px-4 rounded-2xl bg-slate-50 border border-slate-200 select-none">
+          <p id="vocStudyEng" class="text-3xl font-extrabold text-slate-900"></p>
+          <div id="vocStudyAns" class="hidden mt-4 pt-3 border-t border-slate-200">
+            <p id="vocStudyEsp" class="text-xl font-bold text-emerald-600"></p>
+          </div>
+          <p id="vocTapHint" class="text-xs text-slate-400 mt-4">👆 Toca para ver la traducción</p>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" onclick="prevVocabStudy()" class="py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">← Anterior</button>
+          <button type="button" onclick="shuffleVocab()" class="py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">🔀 Barajar</button>
+          <button type="button" onclick="nextVocabStudy()" class="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition">Siguiente →</button>
+        </div>
+      </div>
+
+      <!-- Practicar Vocabulario -->
+      <div id="vocabPracticePanel" class="hidden bg-white rounded-3xl shadow-md border-2 border-emerald-100 p-5 space-y-4">
+        <div class="flex items-center justify-between text-xs font-bold">
+          <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">🎯 Reto de traducción</span>
+          <span id="vocPracCounter" class="text-slate-400">1 / 1</span>
+        </div>
+
+        <div class="text-center p-4 rounded-2xl bg-slate-50 border border-slate-200">
+          <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-400">¿Cómo se dice en inglés?</span>
+          <p id="vocPracEsp" class="text-2xl font-extrabold text-slate-900 mt-1"></p>
+        </div>
+
+        <input id="inVocab" type="text" autocomplete="off" placeholder="Escribe la palabra en inglés..." class="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-base font-bold text-center focus:border-emerald-500 outline-none">
+        <div id="vocPracResult" class="hidden p-3 rounded-2xl text-xs sm:text-sm font-bold text-center"></div>
+
+        <div class="flex gap-2">
+          <button type="button" onclick="checkVocabChallenge()" class="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm transition">✅ Comprobar</button>
+          <button type="button" onclick="nextVocabPractice()" class="px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm transition">Siguiente →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN: MIS TRUCOS -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+      <label for="tricksInput" class="block text-sm font-bold text-slate-800 mb-1">🧠 Mis Trucos</label>
+      <textarea id="tricksInput" rows="2" placeholder="Anota tus reglas mnemotécnicas o trucos para recordar verbos y palabras..." class="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none"></textarea>
+      <div class="flex items-center justify-between mt-2 gap-2">
+        <span id="syncStatus" class="text-xs font-medium text-slate-400"></span>
+        <button type="button" onclick="saveTricks()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition">💾 Guardar trucos</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SCRIPT_URL = ${scriptUrlSafe};
+  const STUDENTS = ${studentsJson};
+  let VERBS = ${verbsJson};
+  let VOCAB = ${vocabJson};
+
+  let isDemo = false;
+  let currentUser = { nombre: '', pin: '', xp: 0, sesiones: 1, verbos: 0, vocabulario: 0, trucos: '' };
+  let vStudyIdx = 0;
+  let vPracIdx = 0;
+  let vocStudyIdx = 0;
+  let vocPracIdx = 0;
+  let vocFlipped = false;
+  const masteredVerbs = new Set();
+  const masteredVocab = new Set();
+
+  (function init() {
+    const sel = document.getElementById('studentSelect');
+    sel.innerHTML = STUDENTS.map(n => '<option value="' + n.replace(/"/g, '&quot;') + '">' + n + '</option>').join('');
+  })();
+
+  function showLoginMsg(text, isError) {
+    const box = document.getElementById('loginMsg');
+    box.textContent = text;
+    box.className = 'text-xs font-semibold rounded-xl px-3.5 py-2.5 ' + (isError ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-indigo-50 text-indigo-700 border border-indigo-200');
+    box.classList.remove('hidden');
+  }
+
+  async function handleLogin() {
+    const nombre = document.getElementById('studentSelect').value;
+    const pin = document.getElementById('pinInput').value.trim();
+
+    // Si no hay SCRIPT_URL configurada, permite entrar en Modo Demo con el alumno elegido
+    if (!SCRIPT_URL) {
+      isDemo = true;
+      currentUser = { nombre: nombre || 'Alumno Demo', pin: '', xp: 0, sesiones: 1, verbos: 0, vocabulario: 0, trucos: '' };
+      openAppScreen();
+      return;
+    }
+
+    if (!pin) { showLoginMsg('Introduce tu PIN de 4 dígitos.', true); return; }
+
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true;
+    btn.textContent = 'Validando...';
+    showLoginMsg('Conectando con Google Sheets...', false);
+
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'login', nombre, pin })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        showLoginMsg(data.error || 'PIN incorrecto.', true);
+      } else {
+        isDemo = false;
+        currentUser = Object.assign({ pin }, data.student);
+        openAppScreen();
+      }
+    } catch (err) {
+      showLoginMsg('Error de conexión. Revisa la URL o prueba en Modo Demo.', true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Entrar a practicar';
+    }
+  }
+
+  function enterDemoMode() {
+    isDemo = true;
+    const chosen = document.getElementById('studentSelect').value || 'Modo Demo';
+    currentUser = { nombre: chosen, pin: '', xp: 0, sesiones: 1, verbos: 0, vocabulario: 0, trucos: '' };
+    openAppScreen();
+  }
+
+  function openAppScreen() {
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('appScreen').classList.remove('hidden');
+    document.getElementById('userNameDisplay').textContent = currentUser.nombre;
+    document.getElementById('userAvatar').textContent = currentUser.nombre.charAt(0).toUpperCase();
+    const badge = document.getElementById('modeBadge');
+    if (isDemo) {
+      badge.textContent = '🧪 Modo Demo (práctica local)';
+      badge.className = 'text-[11px] font-bold text-amber-600';
+    } else {
+      badge.textContent = '🟢 Conectado a Google Sheets';
+      badge.className = 'text-[11px] font-semibold text-emerald-600';
+    }
+    document.getElementById('tricksInput').value = currentUser.trucos || '';
+    updateStatsUI();
+    renderVerbStudy();
+    renderVerbPractice();
+    renderVocabStudy();
+    renderVocabPractice();
+  }
+
+  function logout() {
+    document.getElementById('appScreen').classList.add('hidden');
+    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('pinInput').value = '';
+    document.getElementById('loginMsg').classList.add('hidden');
+  }
+
+  function updateStatsUI() {
+    document.getElementById('statXp').textContent = currentUser.xp;
+    document.getElementById('statSessions').textContent = currentUser.sesiones;
+    document.getElementById('statVerbs').textContent = currentUser.verbos;
+    document.getElementById('statVocab').textContent = currentUser.vocabulario;
+  }
+
+  function switchMainMode(mode) {
+    const isVerbs = mode === 'verbs';
+    document.getElementById('verbsSection').classList.toggle('hidden', !isVerbs);
+    document.getElementById('vocabSection').classList.toggle('hidden', isVerbs);
+    document.getElementById('mainTabVerbs').className = isVerbs
+      ? 'py-2.5 px-3 rounded-xl text-xs sm:text-sm font-extrabold bg-white text-indigo-700 shadow-sm transition'
+      : 'py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition';
+    document.getElementById('mainTabVocab').className = !isVerbs
+      ? 'py-2.5 px-3 rounded-xl text-xs sm:text-sm font-extrabold bg-white text-emerald-700 shadow-sm transition'
+      : 'py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition';
+  }
+
+  function switchVerbsSub(sub) {
+    const isStudy = sub === 'study';
+    document.getElementById('verbsStudyPanel').classList.toggle('hidden', !isStudy);
+    document.getElementById('verbsPracticePanel').classList.toggle('hidden', isStudy);
+    document.getElementById('subVerbsStudy').className = isStudy
+      ? 'flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-sm transition'
+      : 'flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition';
+    document.getElementById('subVerbsPractice').className = !isStudy
+      ? 'flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-sm transition'
+      : 'flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition';
+  }
+
+  function switchVocabSub(sub) {
+    const isStudy = sub === 'study';
+    document.getElementById('vocabStudyPanel').classList.toggle('hidden', !isStudy);
+    document.getElementById('vocabPracticePanel').classList.toggle('hidden', isStudy);
+    document.getElementById('subVocabStudy').className = isStudy
+      ? 'flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-sm transition'
+      : 'flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition';
+    document.getElementById('subVocabPractice').className = !isStudy
+      ? 'flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-sm transition'
+      : 'flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition';
+  }
+
+  // ---- ESTUDIAR VERBOS (3 FORMAS) ----
+  function renderVerbStudy() {
+    if (!VERBS.length) return;
+    const v = VERBS[vStudyIdx];
+    document.getElementById('vStudyCounter').textContent = (vStudyIdx + 1) + ' / ' + VERBS.length;
+    document.getElementById('vStudySpanish').textContent = v.spanish || '—';
+    document.getElementById('vStudyBase').textContent = v.base;
+    document.getElementById('vStudyPast').textContent = v.past;
+    document.getElementById('vStudyPart').textContent = v.participle;
+  }
+
+  function nextVerbStudy() { vStudyIdx = (vStudyIdx + 1) % VERBS.length; renderVerbStudy(); }
+  function prevVerbStudy() { vStudyIdx = (vStudyIdx - 1 + VERBS.length) % VERBS.length; renderVerbStudy(); }
+  function shuffleVerbs() {
+    for (let i = VERBS.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = VERBS[i]; VERBS[i] = VERBS[j]; VERBS[j] = tmp;
+    }
+    vStudyIdx = 0; vPracIdx = 0;
+    renderVerbStudy(); renderVerbPractice();
+    setSyncStatus('🔀 Verbos barajados');
+  }
+
+  // ---- PRACTICAR VERBOS (RETO 3 FORMAS) ----
+  function normalizeAns(s) {
+    return String(s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  }
+
+  function matchesForm(userInput, expectedStr) {
+    const u = normalizeAns(userInput);
+    if (!u) return false;
+    const expNorm = normalizeAns(expectedStr);
+    if (u === expNorm) return true;
+    // Acepta variantes separadas por "/" o "," (ej. "was / were" acepta "was/were", "was", "were")
+    const variants = expectedStr.split(/[\/,]/).map(x => normalizeAns(x)).filter(Boolean);
+    if (variants.includes(u)) return true;
+    if (u.replace(/\s*\/\s*/g, '/') === expNorm.replace(/\s*\/\s*/g, '/')) return true;
+    return false;
+  }
+
+  function renderVerbPractice() {
+    if (!VERBS.length) return;
+    const v = VERBS[vPracIdx];
+    document.getElementById('vPracCounter').textContent = (vPracIdx + 1) + ' / ' + VERBS.length;
+    document.getElementById('vPracSpanish').textContent = v.spanish || v.base;
+    document.getElementById('vPracHint').textContent = 'Infinitivo: ' + v.base;
+    document.getElementById('vPracHint').classList.add('hidden');
+
+    ['inBase', 'inPast', 'inPart'].forEach(id => {
+      const el = document.getElementById(id);
+      el.value = '';
+      el.className = 'w-full rounded-xl border-2 border-slate-200 px-3 py-2.5 text-sm font-bold text-center focus:border-indigo-500 outline-none';
+    });
+    ['fbBase', 'fbPast', 'fbPart'].forEach(id => {
+      document.getElementById(id).textContent = '';
+    });
+    document.getElementById('vPracResult').classList.add('hidden');
+  }
+
+  function toggleInfinitiveHint() {
+    document.getElementById('vPracHint').classList.toggle('hidden');
+  }
+
+  function checkVerbChallenge() {
+    if (!VERBS.length) return;
+    const v = VERBS[vPracIdx];
+    const checks = [
+      { inId: 'inBase', fbId: 'fbBase', expected: v.base },
+      { inId: 'inPast', fbId: 'fbPast', expected: v.past },
+      { inId: 'inPart', fbId: 'fbPart', expected: v.participle }
+    ];
+
+    let allOk = true;
+    checks.forEach(c => {
+      const inp = document.getElementById(c.inId);
+      const fb = document.getElementById(c.fbId);
+      const ok = matchesForm(inp.value, c.expected);
+      if (ok) {
+        inp.className = 'w-full rounded-xl border-2 border-emerald-500 bg-emerald-50 text-emerald-900 px-3 py-2.5 text-sm font-bold text-center outline-none';
+        fb.textContent = '✓ Correcto';
+        fb.className = 'text-[11px] font-bold text-center mt-1 text-emerald-600 min-h-[16px]';
+      } else {
+        allOk = false;
+        inp.className = 'w-full rounded-xl border-2 border-rose-500 bg-rose-50 text-rose-900 px-3 py-2.5 text-sm font-bold text-center outline-none';
+        fb.textContent = '✗ ' + c.expected;
+        fb.className = 'text-[11px] font-bold text-center mt-1 text-rose-600 min-h-[16px]';
+      }
+    });
+
+    const resBox = document.getElementById('vPracResult');
+    resBox.classList.remove('hidden');
+
+    if (allOk) {
+      const key = v.base + '|' + v.past + '|' + v.participle;
+      if (!masteredVerbs.has(key)) {
+        masteredVerbs.add(key);
+        currentUser.xp += 15;
+        currentUser.verbos += 1;
+        updateStatsUI();
+        syncProgress('¡Verbo dominado! (+15 XP)');
+      }
+      resBox.className = 'p-3.5 rounded-2xl text-xs sm:text-sm font-bold text-center bg-emerald-50 text-emerald-800 border border-emerald-300';
+      resBox.textContent = '🎉 ¡Perfecto! ' + v.base + ' — ' + v.past + ' — ' + v.participle + ' (+15 XP)';
+    } else {
+      resBox.className = 'p-3.5 rounded-2xl text-xs sm:text-sm font-bold text-center bg-rose-50 text-rose-800 border border-rose-300';
+      resBox.textContent = 'Formas correctas: ' + v.base + ' — ' + v.past + ' — ' + v.participle;
+    }
+  }
+
+  function nextVerbPractice() {
+    vPracIdx = (vPracIdx + 1) % VERBS.length;
+    renderVerbPractice();
+  }
+
+  // ---- VOCABULARIO ----
+  function renderVocabStudy() {
+    if (!VOCAB.length) return;
+    const item = VOCAB[vocStudyIdx];
+    vocFlipped = false;
+    document.getElementById('vocStudyCounter').textContent = (vocStudyIdx + 1) + ' / ' + VOCAB.length;
+    document.getElementById('vocStudyEng').textContent = item.english;
+    document.getElementById('vocStudyEsp').textContent = item.spanish;
+    document.getElementById('vocStudyAns').classList.add('hidden');
+    document.getElementById('vocTapHint').classList.remove('hidden');
+  }
+
+  function flipVocabCard() {
+    vocFlipped = !vocFlipped;
+    document.getElementById('vocStudyAns').classList.toggle('hidden', !vocFlipped);
+    document.getElementById('vocTapHint').classList.toggle('hidden', vocFlipped);
+  }
+
+  function nextVocabStudy() { vocStudyIdx = (vocStudyIdx + 1) % VOCAB.length; renderVocabStudy(); }
+  function prevVocabStudy() { vocStudyIdx = (vocStudyIdx - 1 + VOCAB.length) % VOCAB.length; renderVocabStudy(); }
+  function shuffleVocab() {
+    for (let i = VOCAB.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = VOCAB[i]; VOCAB[i] = VOCAB[j]; VOCAB[j] = tmp;
+    }
+    vocStudyIdx = 0; vocPracIdx = 0;
+    renderVocabStudy(); renderVocabPractice();
+    setSyncStatus('🔀 Vocabulario barajado');
+  }
+
+  function renderVocabPractice() {
+    if (!VOCAB.length) return;
+    const item = VOCAB[vocPracIdx];
+    document.getElementById('vocPracCounter').textContent = (vocPracIdx + 1) + ' / ' + VOCAB.length;
+    document.getElementById('vocPracEsp').textContent = item.spanish;
+    const inp = document.getElementById('inVocab');
+    inp.value = '';
+    inp.className = 'w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-base font-bold text-center focus:border-emerald-500 outline-none';
+    document.getElementById('vocPracResult').classList.add('hidden');
+  }
+
+  function checkVocabChallenge() {
+    if (!VOCAB.length) return;
+    const item = VOCAB[vocPracIdx];
+    const inp = document.getElementById('inVocab');
+    const resBox = document.getElementById('vocPracResult');
+    const ok = matchesForm(inp.value, item.english);
+    resBox.classList.remove('hidden');
+
+    if (ok) {
+      inp.className = 'w-full rounded-xl border-2 border-emerald-500 bg-emerald-50 text-emerald-900 px-4 py-3 text-base font-bold text-center outline-none';
+      const key = item.english + '|' + item.spanish;
+      if (!masteredVocab.has(key)) {
+        masteredVocab.add(key);
+        currentUser.xp += 10;
+        currentUser.vocabulario += 1;
+        updateStatsUI();
+        syncProgress('¡Vocabulario dominado! (+10 XP)');
+      }
+      resBox.className = 'p-3 rounded-2xl text-xs sm:text-sm font-bold text-center bg-emerald-50 text-emerald-800 border border-emerald-300';
+      resBox.textContent = '🎉 ¡Correcto! ' + item.english + ' (+10 XP)';
+    } else {
+      inp.className = 'w-full rounded-xl border-2 border-rose-500 bg-rose-50 text-rose-900 px-4 py-3 text-base font-bold text-center outline-none';
+      resBox.className = 'p-3 rounded-2xl text-xs sm:text-sm font-bold text-center bg-rose-50 text-rose-800 border border-rose-300';
+      resBox.textContent = 'Respuesta correcta: ' + item.english;
+    }
+  }
+
+  function nextVocabPractice() {
+    vocPracIdx = (vocPracIdx + 1) % VOCAB.length;
+    renderVocabPractice();
+  }
+
+  // ---- TRUCOS Y SINCRONIZACIÓN ----
+  function saveTricks() {
+    currentUser.trucos = document.getElementById('tricksInput').value.trim();
+    syncProgress('Trucos guardados');
+  }
+
+  function setSyncStatus(msg) {
+    document.getElementById('syncStatus').textContent = msg;
+  }
+
+  async function syncProgress(successMsg) {
+    if (isDemo || !SCRIPT_URL) {
+      setSyncStatus('🧪 Modo Demo: ' + successMsg);
+      return;
+    }
+    setSyncStatus('⏳ Guardando en Google Sheets...');
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'update',
+          nombre: currentUser.nombre,
+          pin: currentUser.pin,
+          xp: currentUser.xp,
+          sesiones: currentUser.sesiones,
+          verbos: currentUser.verbos,
+          vocabulario: currentUser.vocabulario,
+          trucos: currentUser.trucos
+        })
+      });
+      const data = await res.json();
+      setSyncStatus(data.ok ? '✅ ' + successMsg : '⚠️ No se pudo guardar');
+    } catch (e) {
+      setSyncStatus('⚠️ Error de conexión');
+    }
+  }
+<\/script>
+</body>
+</html>`;
+        }
+
+        function renderStep3() {
+            document.getElementById('summaryStudents').textContent = `${state.students.length} ${state.students.length === 1 ? 'alumno' : 'alumnos'}`;
+            document.getElementById('summaryVerbs').textContent = `${state.verbs.length} ${state.verbs.length === 1 ? 'verbo' : 'verbos'}`;
+            document.getElementById('summaryVocab').textContent = `${state.vocab.length} ${state.vocab.length === 1 ? 'palabra' : 'palabras'}`;
+
+            const urlSummary = document.getElementById('summaryUrl');
+            if (state.scriptUrl) {
+                urlSummary.textContent = '✅ Google Sheets';
+                urlSummary.className = 'text-xs sm:text-sm font-bold text-emerald-600 mt-1 truncate';
+            } else {
+                urlSummary.textContent = '🧪 Modo Demo';
+                urlSummary.className = 'text-xs sm:text-sm font-bold text-amber-600 mt-1 truncate';
+            }
+
+            const html = generateVerboQuestHtml();
+            document.getElementById('finalHtmlCode').textContent = html;
+            document.getElementById('livePreviewIframe').srcdoc = html;
+        }
+
+        function refreshLivePreview() {
+            const html = generateVerboQuestHtml();
+            document.getElementById('livePreviewIframe').srcdoc = html;
+            showToast('Vista previa reiniciada.', 'info');
+        }
+
+        function downloadVerboQuestHtml() {
+            const html = generateVerboQuestHtml();
+            const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'verboquest_alumnado.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Archivo HTML descargado.', 'success');
+        }
+
+        // =====================================================
+        // PASO 4: CHECKLIST INTERACTIVA
+        // =====================================================
+        function updateChecklistProgress() {
+            const items = document.querySelectorAll('.checklist-item');
+            const total = items.length;
+            const checked = Array.from(items).filter(cb => cb.checked).length;
+            const pct = Math.round((checked / total) * 100);
+
+            document.getElementById('checklistProgressText').textContent = `${checked} de ${total} completados`;
+            document.getElementById('checklistProgressBar').style.width = `${pct}%`;
+            document.getElementById('allDoneBanner').classList.toggle('hidden', checked < total);
+        }
+
+        // Inicialización de tablas al cargar la página
+        window.addEventListener('DOMContentLoaded', () => {
+            renderStudentTable();
+            renderVerbsTable();
+            renderVocabTable();
+            updateBadges();
+        });
+    </script>
+</body>
+</html>
